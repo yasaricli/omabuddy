@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Omabuddy
+Name[tr]=Omabuddy
+Comment=A pixel buddy who walks your screen and keeps an eye on Claude Code
+Comment[tr]=Ekranında gezen ve Claude Code'u takip eden piksel arkadaş
+Exec=omabuddy toggle
+Icon=omabuddy
+Terminal=false
+Categories=Utility;Amusement;
+StartupWMClass=omabuddy

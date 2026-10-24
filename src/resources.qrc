@@ -1,0 +1,7 @@
+<RCC>
+    <qresource prefix="/">
+        <file alias="Main.qml">Main.qml</file>
+        <file alias="SpeechBubble.qml">SpeechBubble.qml</file>
+        <file alias="i18n/tr.json">i18n/tr.json</file>
+    </qresource>
+</RCC>
