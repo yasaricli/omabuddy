@@ -285,6 +285,29 @@ private slots:
         QVERIFY(sessions.handle({}).startsWith("error:"));
     }
 
+    void compactingBetweenTurnsLeavesHimIdle()
+    {
+        Pet pet(6);
+        pet.setArena(1200, 800);
+        settle(pet);
+        Sessions sessions(pet);
+        const QJsonObject start{{"session_id", "a"}, {"hook_event_name", "SessionStart"}};
+        const QJsonObject compact{{"session_id", "a"}, {"hook_event_name", "PreCompact"}};
+
+        // Compacting on its own after a finished turn ends with no Stop.
+        sessions.handle({{"session_id", "a"}, {"hook_event_name", "Stop"}});
+        sessions.handle(compact);
+        QCOMPARE(pet.state(), Pet::State::Work);
+        sessions.handle(start);
+        QVERIFY(pet.state() != Pet::State::Work);
+
+        // In the middle of a turn, he keeps working afterwards.
+        sessions.handle({{"session_id", "a"}, {"hook_event_name", "UserPromptSubmit"}});
+        sessions.handle(compact);
+        sessions.handle(start);
+        QCOMPARE(pet.state(), Pet::State::Work);
+    }
+
     void unansweredQuestionsGetPushier()
     {
         Pet pet(9);

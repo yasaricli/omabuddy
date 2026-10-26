@@ -91,6 +91,12 @@ QString Sessions::handle(const QJsonObject &event) {
     session.seen = m_now();
 
     if (name == "SessionStart") {
+        // Claude Code compacts on its own between turns and after /compact,
+        // and only says so with this, so he goes back to what he was doing.
+        if (session.beforeCompact) {
+            session.activity = *session.beforeCompact;
+            session.beforeCompact.reset();
+        }
         apply();
         if (!known && m_sessions.size() > 1)
             m_pet.say(tr("Another Claude in %1!").arg(session.project), 2.5);
@@ -111,6 +117,8 @@ QString Sessions::handle(const QJsonObject &event) {
             m_pet.say(label(session.project, text), 3);
         }
     } else if (name == "PreCompact") {
+        if (!session.beforeCompact)
+            session.beforeCompact = session.activity;
         session.activity = Activity::Working;
         apply();
         if (!anyWaiting())
@@ -131,6 +139,7 @@ QString Sessions::handle(const QJsonObject &event) {
         apply();
     } else if (name == "Stop") {
         session.activity = Activity::Idle;
+        session.beforeCompact.reset();
         apply(session.project);
     }
     return "ok";

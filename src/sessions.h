@@ -7,6 +7,7 @@
 #include <QObject>
 #include <QTimer>
 #include <functional>
+#include <optional>
 
 class Pet;
 
@@ -47,6 +48,8 @@ private:
         QString project;
         qint64 pid = 0;
         Activity activity = Activity::Idle;
+        // What it was doing before a compaction, which ends without a Stop.
+        std::optional<Activity> beforeCompact;
         QString waitingFor;
         QDateTime waitingSince;
         bool cameForward = false;
