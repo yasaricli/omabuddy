@@ -3,6 +3,7 @@
 #include "pet.h"
 
 #include <QFileInfo>
+#include <QProcess>
 #include <QRegularExpression>
 
 namespace {
@@ -17,10 +18,16 @@ QString shorten(QString text, int length) {
 }
 
 Sessions::Sessions(Pet &pet, const QString &procRoot, QObject *parent)
-    : QObject(parent), m_pet(pet), m_procRoot(procRoot) {
+    : QObject(parent), m_pet(pet), m_procRoot(procRoot), m_now([] { return QDateTime::currentDateTimeUtc(); }),
+      m_notify([](const QString &title, const QString &body) {
+          QProcess::startDetached("notify-send", {"--app-name=Omabuddy", "--icon=omabuddy", title, body});
+      }) {
     m_pruneTimer.setInterval(5000);
     connect(&m_pruneTimer, &QTimer::timeout, this, &Sessions::prune);
     m_pruneTimer.start();
+    m_tickTimer.setInterval(1000);
+    connect(&m_tickTimer, &QTimer::timeout, this, &Sessions::tick);
+    m_tickTimer.start();
 }
 
 QString Sessions::describeTool(const QString &tool, const QString &detail, const QString &summary) {
@@ -81,7 +88,7 @@ QString Sessions::handle(const QJsonObject &event) {
         session.project = QFileInfo(cwd).fileName();
     if (event.contains("pid"))
         session.pid = event.value("pid").toInteger();
-    session.seen = QDateTime::currentDateTimeUtc();
+    session.seen = m_now();
 
     if (name == "SessionStart") {
         apply();
@@ -114,6 +121,11 @@ QString Sessions::handle(const QJsonObject &event) {
         if (wasWaiting)
             apply();
     } else if (name == "Notification") {
+        // A second notification for the same question keeps its clock.
+        if (session.activity != Activity::Waiting) {
+            session.waitingSince = m_now();
+            session.cameForward = session.notified = false;
+        }
         session.activity = Activity::Waiting;
         session.waitingFor = describeNotification(event.value("message").toString());
         apply();
@@ -124,6 +136,14 @@ QString Sessions::handle(const QJsonObject &event) {
     return "ok";
 }
 
+Sessions::Session *Sessions::longestWaiting() {
+    Session *longest = nullptr;
+    for (Session &session : m_sessions)
+        if (session.activity == Activity::Waiting && (!longest || session.waitingSince < longest->waitingSince))
+            longest = &session;
+    return longest;
+}
+
 bool Sessions::anyWaiting() const {
     for (const Session &session : m_sessions)
         if (session.activity == Activity::Waiting)
@@ -132,17 +152,18 @@ bool Sessions::anyWaiting() const {
 }
 
 void Sessions::apply(const QString &finishedProject) {
-    const Session *waiting = nullptr;
+    const Session *waiting = longestWaiting();
     bool working = false;
-    for (const Session &session : std::as_const(m_sessions)) {
-        if (session.activity == Activity::Waiting && !waiting)
-            waiting = &session;
+    for (const Session &session : std::as_const(m_sessions))
         working = working || session.activity == Activity::Working;
-    }
 
     if (waiting) {
         m_pet.setMood("waiting");
-        m_pet.say(label(waiting->project, waiting->waitingFor), 0);
+        QString text = label(waiting->project, waiting->waitingFor);
+        const qint64 minutes = waiting->waitingSince.secsTo(m_now()) / 60;
+        if (minutes > 0)
+            text += QString(" \u00b7 %1m").arg(minutes);
+        m_pet.say(text, 0);
     } else if (!finishedProject.isNull()) {
         if (working) {
             m_pet.setMood("working");
@@ -156,8 +177,25 @@ void Sessions::apply(const QString &finishedProject) {
     }
 }
 
+void Sessions::tick() {
+    Session *waiting = longestWaiting();
+    if (!waiting)
+        return;
+    const qint64 seconds = waiting->waitingSince.secsTo(m_now());
+    if (seconds >= ComeForwardAfter && !waiting->cameForward) {
+        waiting->cameForward = true;
+        m_pet.comeForward();
+    }
+    if (seconds >= NotifyAfter && !waiting->notified) {
+        waiting->notified = true;
+        m_notify(tr("Claude is waiting for you"), label(waiting->project, waiting->waitingFor));
+    }
+    // Keeps the minutes in his bubble current.
+    apply();
+}
+
 void Sessions::prune() {
-    const QDateTime now = QDateTime::currentDateTimeUtc();
+    const QDateTime now = m_now();
     bool removed = false;
     for (auto it = m_sessions.begin(); it != m_sessions.end();) {
         const bool gone = it->pid > 0 ? !QFileInfo::exists(m_procRoot + "/" + QString::number(it->pid))

@@ -15,6 +15,8 @@ follows every session you have open:
 | --- | --- |
 | Working on your prompt | Sits at his laptop and says what's going on: "Reading main.cpp", "Editing pet.cpp", "Run the tests" |
 | Asking for permission | Stands up, waves now and then, and asks "Can I use Bash?" until you answer |
+| Still no answer after a minute | Hurries to the middle of the screen and hops, counting the minutes ("Can I use Bash? · 3m") |
+| Still no answer after five | Sends a desktop notification, so a missed prompt doesn't stall a long run |
 | Waiting for your reply | "Your turn!" |
 | Done | Jumps for joy: "Done!" |
 

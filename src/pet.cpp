@@ -96,10 +96,14 @@ void Pet::advance(qreal seconds) {
 
     switch (m_state) {
     case State::Walk: {
-        const qreal step = WalkSpeed * dt;
+        // Waiting on the user, he only walks to get noticed, so he hurries.
+        const qreal step = WalkSpeed * (m_mood == Mood::Waiting ? 3 : 1) * dt;
         if (qAbs(m_targetX - m_x) <= step) {
             m_x = m_targetX;
-            enter(State::Idle, uniform(1, 3));
+            if (m_mood == Mood::Waiting)
+                jump(460);
+            else
+                enter(State::Idle, uniform(1, 3));
         } else {
             m_x += m_targetX > m_x ? step : -step;
         }
@@ -214,6 +218,14 @@ void Pet::walk() {
         m_targetX = m_x < maxX() / 2 ? qMin(maxX(), m_x + uniform(80, 300))
                                      : qMax<qreal>(0, m_x - uniform(80, 300));
     }
+    m_facingLeft = m_targetX < m_x;
+    enter(State::Walk);
+}
+
+void Pet::comeForward() {
+    if (m_state != State::Wait || m_airborne)
+        return;
+    m_targetX = maxX() / 2;
     m_facingLeft = m_targetX < m_x;
     enter(State::Walk);
 }
@@ -334,9 +346,13 @@ bool Pet::setMood(const QString &name) {
         if (settled && m_state != State::Work)
             enter(State::Work);
     } else if (name == "waiting") {
+        const bool already = m_mood == Mood::Waiting;
         m_mood = Mood::Waiting;
-        say("?", 0);
-        if (settled)
+        // A question already up stays as it is, so it doesn't pop again.
+        if (!persistent)
+            say("?", 0);
+        // Already waiting, or hurrying to the middle to be seen, he carries on.
+        if (settled && !(already && (m_state == State::Wait || m_state == State::Walk)))
             enter(State::Wait);
     } else if (name == "done") {
         m_mood = Mood::Wander;
@@ -404,7 +420,7 @@ QString Pet::pickFrame() const {
             return cycle(2.5, "wave1", "wave2");
         return blinking ? "blink" : "stand";
     case State::Look: return "look";
-    case State::Walk: return cycle(3.5, "walk1", "walk2");
+    case State::Walk: return cycle(m_mood == Mood::Waiting ? 9 : 3.5, "walk1", "walk2");
     case State::Sit: return blinking ? "sitblink" : "sit";
     case State::Sleep: return "sitblink";
     case State::Wave:

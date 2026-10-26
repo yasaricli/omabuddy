@@ -283,6 +283,59 @@ private slots:
         QVERIFY(sessions.handle({}).startsWith("error:"));
     }
 
+    void unansweredQuestionsGetPushier()
+    {
+        Pet pet(9);
+        pet.setArena(1200, 800);
+        settle(pet);
+        Sessions sessions(pet);
+        QDateTime now = QDateTime::currentDateTimeUtc();
+        sessions.setClock([&now] { return now; });
+        QStringList notes;
+        sessions.setNotifier([&notes](const QString &title, const QString &body) { notes << title + "|" + body; });
+
+        const QJsonObject ask{{"session_id", "a"}, {"hook_event_name", "Notification"}, {"cwd", "/w/blog"},
+                              {"message", "Claude needs your permission to use Bash"}};
+        sessions.handle(ask);
+        QCOMPARE(pet.state(), Pet::State::Wait);
+        QCOMPARE(pet.bubble(), QString("Can I use Bash?"));
+
+        now = now.addSecs(30);
+        sessions.tick();
+        QCOMPARE(pet.state(), Pet::State::Wait);
+        QCOMPARE(pet.bubble(), QString("Can I use Bash?"));
+
+        // After a minute he hurries to the middle, and the bubble says how long.
+        now = now.addSecs(40);
+        sessions.tick();
+        QCOMPARE(pet.state(), Pet::State::Walk);
+        QCOMPARE(pet.bubble(), QString::fromUtf8("Can I use Bash? · 1m"));
+        // Ticks along the way don't stop him.
+        for (int i = 0; i < 60 * 20 && (pet.state() != Pet::State::Wait || pet.airborne()); ++i) {
+            pet.advance(1.0 / 60);
+            if (i % 60 == 0)
+                sessions.tick();
+        }
+        QCOMPARE(pet.state(), Pet::State::Wait);
+        QVERIFY(qAbs(pet.x() - (1200 - pet.width()) / 2) <= 2);
+        QVERIFY(notes.isEmpty());
+
+        // After five minutes, one notification.
+        now = now.addSecs(240);
+        sessions.tick();
+        sessions.tick();
+        QCOMPARE(notes, QStringList{"Claude is waiting for you|Can I use Bash?"});
+
+        // Repeating the question doesn't restart the clock; answering it does.
+        sessions.handle(ask);
+        QVERIFY(pet.bubble().endsWith("5m"));
+        sessions.handle({{"session_id", "a"}, {"hook_event_name", "PostToolUse"}});
+        sessions.handle(ask);
+        sessions.tick();
+        QCOMPARE(pet.bubble(), QString("Can I use Bash?"));
+        QCOMPARE(notes.size(), 1);
+    }
+
     void deadSessionsArePruned()
     {
         QTemporaryDir proc;

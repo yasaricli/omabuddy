@@ -46,6 +46,9 @@ public:
     Q_INVOKABLE void farewell();
 
     void greet();
+    // Hurries to the middle of the screen and hops, for a question that has
+    // gone unanswered.
+    void comeForward();
     void noticeTheme();
     // A line from the command socket ("hello", "quit", "state working",
     // "say ..."); returns "ok" or "error: ...".
