@@ -44,6 +44,12 @@ Command Cli::parse(QStringList arguments) {
             return invalid("say needs something to say");
         command.kind = Command::Send;
         command.message = "say " + text;
+    } else if (verb == "language") {
+        if (rest.size() > 1)
+            return invalid("language takes one language code, or nothing to show the current one");
+        command.kind = Command::Language;
+        command.message = rest.value(0);
+        return command;
     } else if (verb == "hook") {
         command.kind = Command::Hook;
     } else if (verb == "hooks") {
@@ -77,6 +83,7 @@ QString Cli::usage() {
         "  omabuddy hello           make him wave\n"
         "  omabuddy say <text>      put words in his mouth\n"
         "  omabuddy state <state>   working, waiting, done, or idle\n"
+        "  omabuddy language [code] show or set his language (en, de, tr, ..., or auto)\n"
         "  omabuddy hooks install   follow every Claude Code session (~/.claude/settings.json)\n"
         "  omabuddy hooks uninstall stop following them\n"
         "  omabuddy hooks           print the hooks instead of installing them\n"
@@ -250,6 +257,27 @@ qint64 Cli::claudePid(qint64 parent, const QString &procRoot) {
     // An npm install runs Claude Code as node, so take the first process above
     // the hook's shell.
     return firstOther;
+}
+
+QStringList Cli::languages(const QString &catalogDirectory) {
+    QStringList codes{"auto"};
+    for (const QString &file : QDir(catalogDirectory).entryList({"*.json"}, QDir::Files, QDir::Name))
+        codes << QFileInfo(file).completeBaseName();
+    return codes;
+}
+
+bool Cli::setLanguage(const QString &path, const QString &code, const QString &catalogDirectory, QString *error) {
+    if (!languages(catalogDirectory).contains(code)) {
+        *error = "no '" + code + "' translation; try one of: " + languages(catalogDirectory).join(", ");
+        return false;
+    }
+    QDir().mkpath(QFileInfo(path).absolutePath());
+    QSaveFile file(path);
+    if (!file.open(QIODevice::WriteOnly) || file.write(code.toUtf8() + "\n") < 0 || !file.commit()) {
+        *error = "can't write " + path + ": " + file.errorString();
+        return false;
+    }
+    return true;
 }
 
 QString Cli::socketPath() {

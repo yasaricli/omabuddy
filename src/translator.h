@@ -7,7 +7,9 @@
 #include <QTimer>
 #include <QTranslator>
 
-// Follows the language picked under Omarchy's Setup > Language. Catalogs are
+// Speaks the language set with `omabuddy language`, English until one is
+// set; "auto" follows the language picked under Omarchy's Setup > Language,
+// live. Catalogs are
 // flat JSON objects from English source text to translation, one per Omarchy
 // language code (i18n/da.json, i18n/pt-BR.json), so QML keeps plain
 // qsTr("Save") and C++ keeps tr("Save"). A counted string,
@@ -19,7 +21,7 @@ class Translator : public QTranslator {
 
 public:
     explicit Translator(const QString &languageFile = {}, const QString &catalogDirectory = ":/i18n",
-                        QObject *parent = nullptr);
+                        QObject *parent = nullptr, const QString &omarchyLanguageFile = {});
 
     QString language() const { return m_language; }
     bool isEmpty() const override { return m_strings.isEmpty(); }
@@ -27,6 +29,8 @@ public:
                       int n = -1) const override;
 
     static QString readLanguage(const QString &path);
+    // Where `omabuddy language` keeps its choice.
+    static QString settingPath();
     static QString pluralCategory(const QString &language, long long count);
     static QLocale formatLocale(const QString &language);
 
@@ -37,6 +41,7 @@ private:
     void reload();
 
     QString m_languageFile;
+    QString m_omarchyLanguageFile;
     QString m_catalogDirectory;
     QString m_language;
     QHash<QString, QJsonValue> m_strings;

@@ -4,7 +4,12 @@
 #include <QCoreApplication>
 #include <QFile>
 #include <QFileInfo>
+#include <QDir>
+#include <QJsonArray>
 #include <QJsonDocument>
+#include <QJsonObject>
+#include <QLocale>
+#include <QThread>
 #include <QStandardPaths>
 #include <QGuiApplication>
 #include <QIcon>
@@ -30,6 +35,59 @@ static const char *const Version = "0.1.0";
 
 // What the hooks run: omabuddy from PATH once it's installed, this very binary
 // while it's only built.
+// The language a setting resolves to, and its name in that language.
+static QString describeLanguage(const QString &code) {
+    const QString name = QLocale(code).nativeLanguageName();
+    return name.isEmpty() ? code : code + " (" + name + ")";
+}
+
+static int language(const Command &command, int &argc, char *argv[]) {
+    const QString path = Translator::settingPath();
+    const QString omarchy = QDir::homePath() + "/.config/omarchy/language";
+
+    if (command.message.isEmpty()) {
+        QFile file(path);
+        const QString setting = file.open(QIODevice::ReadOnly) ? QString::fromUtf8(file.readLine()).trimmed()
+                                                               : QString();
+        const QString speaking = Translator::readLanguage(setting == "auto" ? omarchy : path);
+        if (command.json) {
+            QTextStream(stdout) << QJsonDocument(QJsonObject{
+                                       {"ok", true},
+                                       {"setting", setting.isEmpty() ? "en" : setting},
+                                       {"language", speaking},
+                                       {"available", QJsonArray::fromStringList(Cli::languages())}})
+                                       .toJson(QJsonDocument::Compact)
+                                << "\n";
+        } else {
+            QTextStream out(stdout);
+            out << "Buddy speaks " << describeLanguage(speaking);
+            if (setting == "auto")
+                out << ", following Omarchy's language";
+            else if (setting.isEmpty())
+                out << ", the default";
+            out << "\nAvailable: " << Cli::languages().join(", ") << "\n";
+        }
+        return 0;
+    }
+
+    QString error;
+    if (!Cli::setLanguage(path, command.message, ":/i18n", &error))
+        return Cli::report(false, error, command.json);
+    if (!command.json) {
+        const QString speaking = Translator::readLanguage(command.message == "auto" ? omarchy : path);
+        QTextStream(stdout) << "Buddy now speaks " << describeLanguage(speaking)
+                            << (command.message == "auto" ? ", following Omarchy's language\n" : "\n");
+    }
+
+    // A running Buddy picks the new language up on his own; once he has, he
+    // says hello in it.
+    QCoreApplication app(argc, argv);
+    QThread::msleep(300);
+    QString unused;
+    Cli::send("hello", &unused, Cli::socketPath(), 500);
+    return Cli::report(true, {}, command.json);
+}
+
 static QString hookBinary() {
     return QStandardPaths::findExecutable("omabuddy").isEmpty() ? QFileInfo("/proc/self/exe").canonicalFilePath()
                                                              : QStringLiteral("omabuddy");
@@ -54,7 +112,9 @@ static int runPet(int argc, char *argv[]) {
     }
 
     // Installed before anything is translated, and every qsTr() binding is
-    // re-evaluated when the Omarchy language changes.
+    // re-evaluated when the language changes. The setting's directory has to
+    // exist for a first `omabuddy language` to be noticed.
+    QDir().mkpath(QFileInfo(Translator::settingPath()).absolutePath());
     Translator translator;
     app.installTranslator(&translator);
 
@@ -138,6 +198,8 @@ int main(int argc, char *argv[]) {
                                 << Cli::settingsPath() << (command.kind == Command::HooksInstall ? ")\n" : "\n");
         return Cli::report(ok, error, command.json);
     }
+    case Command::Language:
+        return language(command, argc, argv);
     case Command::Hook: {
         // Runs inside Claude Code, so it never fails loudly: with Buddy not
         // out, the event just goes nowhere.

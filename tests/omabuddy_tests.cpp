@@ -1,4 +1,6 @@
 #include <QDir>
+#include <QFileInfo>
+#include <QSet>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -432,7 +434,85 @@ private slots:
         QCOMPARE(file.readAll(), QByteArray("{ not json"));
     }
 
+    void englishUnlessToldOtherwise()
+    {
+        // Omarchy set to Turkish doesn't matter until Buddy is told to follow it.
+        QTemporaryDir dir;
+        write(dir.filePath("omarchy"), "tr\n");
+        const QString catalogs = QFileInfo(QFINDTESTDATA("../src/i18n/en.json")).absolutePath();
+        Translator translator(dir.filePath("setting"), catalogs, nullptr, dir.filePath("omarchy"));
+        QCOMPARE(translator.language(), QString("en"));
+        QVERIFY(translator.translate("Pet", "Done!").isNull() || translator.translate("Pet", "Done!") == "Done!");
+    }
+
+    void autoFollowsOmarchyLive()
+    {
+        QTemporaryDir dir;
+        write(dir.filePath("omarchy"), "de\n");
+        write(dir.filePath("setting"), "auto\n");
+        const QString catalogs = QFileInfo(QFINDTESTDATA("../src/i18n/en.json")).absolutePath();
+        Translator translator(dir.filePath("setting"), catalogs, nullptr, dir.filePath("omarchy"));
+        QCOMPARE(translator.language(), QString("de"));
+        QCOMPARE(translator.translate("Pet", "Done!"), QString("Fertig!"));
+
+        replace(dir.filePath("omarchy"), "ja\n");
+        QTRY_COMPARE(translator.language(), QString("ja"));
+
+        // Picking a language with the command wins over Omarchy again.
+        replace(dir.filePath("setting"), "tr\n");
+        QTRY_COMPARE(translator.language(), QString("tr"));
+        QCOMPARE(translator.translate("Pet", "Done!"), QString("Bitti!"));
+    }
+
+    void catalogsMatchEnglish()
+    {
+        const QDir catalogs(QFileInfo(QFINDTESTDATA("../src/i18n/en.json")).absolutePath());
+        const QJsonObject english = readJson(catalogs.filePath("en.json"));
+        QVERIFY(english.size() > 20);
+        const QStringList files = catalogs.entryList({"*.json"});
+        QVERIFY(files.size() >= 10);
+        for (const QString &file : files) {
+            const QJsonObject catalog = readJson(catalogs.filePath(file));
+            const QStringList keys = catalog.keys(), englishKeys = english.keys();
+            QVERIFY2(QSet<QString>(keys.begin(), keys.end()) == QSet<QString>(englishKeys.begin(), englishKeys.end()),
+                     qPrintable(file + " doesn't have exactly English's strings"));
+            for (const QString &key : englishKeys) {
+                const QString value = catalog.value(key).toString();
+                QVERIFY2(!value.isEmpty(), qPrintable(file + ": " + key));
+                QVERIFY2(key.contains("%1") == value.contains("%1"), qPrintable(file + ": " + key));
+            }
+        }
+    }
+
+    void languageCommand()
+    {
+        QCOMPARE(Cli::parse({"language"}).kind, Command::Language);
+        QCOMPARE(Cli::parse({"language", "de"}).message, QString("de"));
+        QCOMPARE(Cli::parse({"language", "de", "fr"}).kind, Command::Invalid);
+
+        const QString catalogs = QFileInfo(QFINDTESTDATA("../src/i18n/en.json")).absolutePath();
+        const QStringList codes = Cli::languages(catalogs);
+        QVERIFY(codes.contains("auto") && codes.contains("en") && codes.contains("pt-BR"));
+
+        QTemporaryDir dir;
+        const QString setting = dir.filePath("omabuddy/language");
+        QString error;
+        QVERIFY(Cli::setLanguage(setting, "pt-BR", catalogs, &error));
+        QCOMPARE(Translator::readLanguage(setting), QString("pt-BR"));
+        QVERIFY(!Cli::setLanguage(setting, "klingon", catalogs, &error));
+        QVERIFY(error.contains("klingon"));
+        QCOMPARE(Translator::readLanguage(setting), QString("pt-BR"));
+    }
+
 private:
+    // Swaps a file the way a settings tool does, by renaming over it.
+    static void replace(const QString &path, const QByteArray &contents)
+    {
+        write(path + ".new", contents);
+        QFile::remove(path);
+        QFile::rename(path + ".new", path);
+    }
+
     static QJsonObject readJson(const QString &path)
     {
         QFile file(path);

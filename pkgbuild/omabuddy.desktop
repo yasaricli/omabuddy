@@ -1,9 +1,21 @@
 [Desktop Entry]
 Type=Application
 Name=Omabuddy
-Name[tr]=Omabuddy
 Comment=A pixel buddy who walks your screen and keeps an eye on Claude Code
+Comment[ar]=صديق بكسلي يتجول على شاشتك ويراقب Claude Code
+Comment[de]=Ein Pixel-Kumpel, der über deinen Bildschirm läuft und Claude Code im Blick behält
+Comment[es_MX]=Un amigo de píxeles que recorre tu pantalla y vigila Claude Code
+Comment[fr]=Un compagnon en pixels qui se promène sur ton écran et garde un œil sur Claude Code
+Comment[it]=Un amico in pixel che passeggia sullo schermo e tiene d'occhio Claude Code
+Comment[ja]=画面を歩き回って Claude Code を見守るピクセルの相棒
+Comment[ko]=화면을 돌아다니며 Claude Code를 지켜보는 픽셀 친구
+Comment[nl]=Een pixelmaatje dat over je scherm loopt en Claude Code in de gaten houdt
+Comment[pl]=Pikselowy kumpel, który chodzi po ekranie i pilnuje Claude Code
+Comment[pt_BR]=Um amigo de pixels que passeia pela tela e fica de olho no Claude Code
+Comment[ru]=Пиксельный дружок, который гуляет по экрану и присматривает за Claude Code
 Comment[tr]=Ekranında gezen ve Claude Code'u takip eden piksel arkadaş
+Comment[uk]=Піксельний друг, який гуляє екраном і наглядає за Claude Code
+Comment[zh_CN]=在屏幕上溜达、帮你盯着 Claude Code 的像素小伙伴
 Exec=omabuddy toggle
 Icon=omabuddy
 Terminal=false

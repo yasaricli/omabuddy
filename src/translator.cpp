@@ -9,9 +9,12 @@
 #include <QLocale>
 #include <QRegularExpression>
 
-Translator::Translator(const QString &languageFile, const QString &catalogDirectory, QObject *parent)
+Translator::Translator(const QString &languageFile, const QString &catalogDirectory, QObject *parent,
+                       const QString &omarchyLanguageFile)
     : QTranslator(parent),
-      m_languageFile(languageFile.isEmpty() ? QDir::homePath() + "/.config/omarchy/language" : languageFile),
+      m_languageFile(languageFile.isEmpty() ? settingPath() : languageFile),
+      m_omarchyLanguageFile(omarchyLanguageFile.isEmpty() ? QDir::homePath() + "/.config/omarchy/language"
+                                                          : omarchyLanguageFile),
       m_catalogDirectory(catalogDirectory) {
     m_debounce.setSingleShot(true);
     m_debounce.setInterval(80);
@@ -19,6 +22,11 @@ Translator::Translator(const QString &languageFile, const QString &catalogDirect
     connect(&m_watcher, &QFileSystemWatcher::fileChanged, this, [this] { m_debounce.start(); });
     connect(&m_debounce, &QTimer::timeout, this, &Translator::reload);
     reload();
+}
+
+QString Translator::settingPath() {
+    const QString config = qEnvironmentVariable("XDG_CONFIG_HOME", QDir::homePath() + "/.config");
+    return config + "/omabuddy/language";
 }
 
 // One registry code on the first line; anything else, or no file, is English.
@@ -97,16 +105,24 @@ void Translator::reload() {
     if (!paths.isEmpty())
         m_watcher.removePaths(paths);
 
-    // omarchy-language replaces the file, which drops it from the watch, and a
+    // Saving a setting replaces the file, which drops it from the watch, and a
     // first pick creates it; watch its directory too and re-arm every time.
-    const QString directory = QFileInfo(m_languageFile).absolutePath();
-    if (QFileInfo::exists(directory))
-        m_watcher.addPath(directory);
-    if (QFileInfo::exists(m_languageFile))
-        m_watcher.addPath(m_languageFile);
+    QFile setting(m_languageFile);
+    const bool followOmarchy = setting.open(QIODevice::ReadOnly)
+                               && QString::fromUtf8(setting.readLine()).trimmed() == "auto";
+    QStringList watched{m_languageFile};
+    if (followOmarchy)
+        watched << m_omarchyLanguageFile;
+    for (const QString &file : watched) {
+        const QString directory = QFileInfo(file).absolutePath();
+        if (QFileInfo::exists(directory))
+            m_watcher.addPath(directory);
+        if (QFileInfo::exists(file))
+            m_watcher.addPath(file);
+    }
 
     // Catalogs are compiled in, so only a different language needs a reload.
-    const QString language = readLanguage(m_languageFile);
+    const QString language = readLanguage(followOmarchy ? m_omarchyLanguageFile : m_languageFile);
     if (language == m_language)
         return;
 

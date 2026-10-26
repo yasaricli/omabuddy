@@ -93,6 +93,7 @@ Buddy not out, the event just goes nowhere.
 | `omabuddy hello` | Make him wave |
 | `omabuddy say <text>` | Put words in his mouth |
 | `omabuddy state <state>` | `working`, `waiting`, `done`, or `idle` |
+| `omabuddy language [code]` | Show or set the language he speaks (`de`, `ja`, `auto`, ...) |
 | `omabuddy hooks install` | Follow every Claude Code session |
 | `omabuddy hooks uninstall` | Stop following them |
 | `omabuddy hooks` | Print the hooks instead of installing them |
@@ -100,11 +101,26 @@ Buddy not out, the event just goes nowhere.
 
 Every command takes `--json`, and exits 0 or 1 with the error on stderr.
 
-## Language and theme
+## Language
 
-Buddy follows the Omarchy accent and window rounding live, and speaks the
-language picked under Setup > Language. Translations live in `src/i18n/`, one
-JSON file per Omarchy language code; English needs none.
+Buddy speaks English until you tell him otherwise:
+
+```sh
+omabuddy language        # what he speaks, and what he can
+omabuddy language de     # switch, live: he says hello in German
+omabuddy language auto   # follow Omarchy's Setup > Language
+omabuddy language en     # back to English
+```
+
+He speaks Arabic, Chinese, Dutch, English, French, German, Italian,
+Japanese, Korean, Polish, Portuguese, Russian, Spanish, Turkish, and
+Ukrainian. Translations live in `src/i18n/`, one JSON file per Omarchy
+language code, keyed by the English in `en.json`; a new language is one more
+file there and a line in `src/resources.qrc`.
+
+## Theme
+
+Buddy follows the Omarchy accent and window rounding live.
 
 ## Develop
 

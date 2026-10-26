@@ -5,9 +5,10 @@
 #include <QStringList>
 
 struct Command {
-    enum Kind { Run, Toggle, Send, Hook, Hooks, HooksInstall, HooksUninstall, Help, Version, Invalid };
+    enum Kind { Run, Toggle, Send, Hook, Hooks, HooksInstall, HooksUninstall, Language, Help, Version, Invalid };
     Kind kind = Run;
-    // The line sent to the running Buddy, for Send.
+    // The line sent to the running Buddy, for Send; the language to switch
+    // to, for Language (empty shows the current one).
     QString message;
     QString error;
     bool json = false;
@@ -31,6 +32,10 @@ bool uninstallHooks(const QString &settings, QString *error);
 QJsonObject hookEvent(const QByteArray &input, qint64 pid);
 // The Claude process above this one, found by walking up from a parent pid.
 qint64 claudePid(qint64 parent, const QString &procRoot = "/proc");
+// The languages Buddy speaks, as Omarchy language codes, plus "auto".
+QStringList languages(const QString &catalogDirectory = ":/i18n");
+// Saves the language `omabuddy language` picked; a running Buddy switches live.
+bool setLanguage(const QString &path, const QString &code, const QString &catalogDirectory, QString *error);
 QString socketPath();
 // Sends one line to the running Buddy. On failure, error says why.
 bool send(const QString &message, QString *error, const QString &path = socketPath(), int timeout = 1000);

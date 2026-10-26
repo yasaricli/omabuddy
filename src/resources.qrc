@@ -2,6 +2,20 @@
     <qresource prefix="/">
         <file alias="Main.qml">Main.qml</file>
         <file alias="SpeechBubble.qml">SpeechBubble.qml</file>
+        <file alias="i18n/en.json">i18n/en.json</file>
+        <file alias="i18n/ar.json">i18n/ar.json</file>
+        <file alias="i18n/de.json">i18n/de.json</file>
+        <file alias="i18n/es-MX.json">i18n/es-MX.json</file>
+        <file alias="i18n/fr.json">i18n/fr.json</file>
+        <file alias="i18n/it.json">i18n/it.json</file>
+        <file alias="i18n/ja.json">i18n/ja.json</file>
+        <file alias="i18n/ko.json">i18n/ko.json</file>
+        <file alias="i18n/nl.json">i18n/nl.json</file>
+        <file alias="i18n/pl.json">i18n/pl.json</file>
+        <file alias="i18n/pt-BR.json">i18n/pt-BR.json</file>
+        <file alias="i18n/ru.json">i18n/ru.json</file>
         <file alias="i18n/tr.json">i18n/tr.json</file>
+        <file alias="i18n/uk.json">i18n/uk.json</file>
+        <file alias="i18n/zh-CN.json">i18n/zh-CN.json</file>
     </qresource>
 </RCC>
